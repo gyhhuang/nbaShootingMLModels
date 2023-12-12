@@ -1,0 +1,102 @@
+---
+title: "MAS352Project"
+author: "Gabe Huang"
+date: "2023-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+
+```{r}
+barttorvikdrafts <- read_csv('OfficialDataset.csv')
+
+barttorvikdrafts <- barttorvikdrafts %>%
+  filter(!is.na(name))
+```
+```{r}
+evanmiyadata <- read_csv('evanmiyadata.csv')
+```
+```{r}
+full_data <- barttorvikdrafts %>%
+  left_join(evanmiyadata, by = c("name", "season"))
+
+```
+
+
+```{r}
+organizedData <- full_data %>%
+  select(-c(Team, DBPR, `Box DBPR`, `Dposs`, `AdjTeamDefEff`, `N1Sclass`, `N1Sschool`, N1Sconf, N1Srole, `N2Sclass`, `N2Sschool`, N2Sconf, N2Srole,))
+
+organizedData <- organizedData %>% 
+  select(c(season, class, height, name, school, conf, role),
+         c(Oposs, avgPosition, avgRole, PlusMinus),
+         everything())
+```
+
+```{r}
+nbaStats <- read_csv('nbastats1.csv')
+nbaStats2 <- read_csv('nbastats3.csv')
+
+```
+```{r}
+nbaStats <- nbaStats %>%
+  left_join(nbaStats2, by = 'name')
+
+```
+
+```{r}
+collegeAndPro <- nbaStats %>%
+  inner_join(organizedData, by = "name")
+
+```
+
+```{r}
+mutatedCollegeAndPro <- collegeAndPro %>%
+  mutate('rSeason' = as.integer(str_extract(rSeason, "^\\d{4}")), .after = (rSeason))%>%
+  mutate('season'= as.integer(str_extract(season, "^\\d{4}")), .after = (season))%>%
+  mutate('N1Sseason'= as.integer(str_extract(N1Sseason, "^\\d{4}")), .after = (N1Sseason))%>%
+  mutate('N2Sseason'= as.integer(str_extract(N2Sseason, "^\\d{4}")), .after = (N2Sseason))
+  
+```
+
+```{r}
+mutatedCollegeAndPro<- mutatedCollegeAndPro %>%
+  mutate('age' = (rAge + (season - rSeason)), .after = season)%>%
+  mutate('N1Sage' = (rAge + (N1Sseason - rSeason)), .after = N1Sseason)%>%
+  mutate('N2Sage' = (rAge + (N2Sseason - rSeason)), .after = N2Sseason)
+
+```
+
+```{r}
+finalData <- mutatedCollegeAndPro %>%
+  mutate('3Pp100' = ((`3p` / Oposs)* 100), .after = `3p`)%>%
+  mutate('3PAp100' = ((`3pAtts` / Oposs) * 100), .after = `3pAtts`)
+```
+
+
+```{r}
+finalData <- finalData %>%
+  mutate("nbaServicableShooter" = ifelse(`r3P%` > 0.3 & r3PAp100 >= 4, TRUE, FALSE), 
+         .after = rSeason)%>%
+  mutate("collegeServicableShooter" = ifelse(`3pPct` > 0.3 & `3PAp100` >= 4, TRUE, FALSE), 
+         .after = season)%>%
+  mutate("3PtStat" = (sqrt(`3PAp100`) * `3pPct`), .after = season)%>%
+  mutate("r3Ptstat" = (sqrt(`r3PAp100`) * `r3P%`), .after = rSeason)
+
+```
+
+
+```{r}
+write_csv(finalData,"MAS352FinalDataOfficial.csv")
+
+```
+
+
